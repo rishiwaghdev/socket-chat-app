@@ -16,14 +16,9 @@ A modern, real-time chat application built using **Node.js, Express, and Socket.
 
 ---
 
-## 📸 Demo
 
-🎥 
-```
-[Paste your video link here]
-```
+https://github.com/user-attachments/assets/8272cd1a-1792-4e93-b4ff-5d298a6e69b8
 
----
 
 ## 🛠️ Tech Stack
 
