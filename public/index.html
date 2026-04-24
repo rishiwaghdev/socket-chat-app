@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Websocket Chat</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.chat {
+  width: 380px;
+  height: 650px;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(25px);
+  background: rgba(255,255,255,0.05);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+}
+
+.header {
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  background: rgba(255,255,255,0.05);
+}
+
+.messages {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bubble {
+  max-width: 70%;
+  padding: 10px 14px;
+  border-radius: 20px;
+  position: relative;
+  animation: pop 0.25s ease;
+}
+
+@keyframes pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.me {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.other {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.1);
+}
+
+.tick {
+  font-size: 11px;
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  opacity: 0.7;
+}
+
+.blue { color: #38bdf8; }
+
+.input {
+  display: flex;
+  padding: 10px;
+}
+
+input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 20px;
+  border: none;
+  outline: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+button {
+  margin-left: 10px;
+  border-radius: 50%;
+  border: none;
+  padding: 10px;
+  background: #6366f1;
+  color: white;
+}
+
+.typing {
+  font-size: 12px;
+  padding-left: 15px;
+  opacity: 0.6;
+}
+
+/* bubble typing animation */
+.typing-bubble {
+  width: 50px;
+  height: 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  padding: 5px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  animation: bounce 1.2s infinite;
+}
+
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+</style>
+</head>
+
+<body>
+<div class="chat">
+  <div class="header">
+    <div>Websocket Chat</div>
+    <div id="status">online</div>
+  </div>
+
+  <div id="messages" class="messages"></div>
+  <div id="typing"></div>
+
+  <div class="input">
+    <input id="msg" placeholder="Type..." />
+    <button onclick="send()">➤</button>
+  </div>
+</div>
+
+<script>
+const socket = io();
+const messages = document.getElementById("messages");
+const typingDiv = document.getElementById("typing");
+
+let typingTimeout;
+
+function uuid() {
+  return Date.now() + Math.random();
+}
+
+function createBubble(msg, type) {
+  const div = document.createElement("div");
+  div.className = "bubble " + type;
+  div.id = msg.id;
+  div.innerHTML = msg.text;
+
+  if (type === "me") {
+    const tick = document.createElement("div");
+    tick.className = "tick";
+    tick.innerHTML = "✔";
+    div.appendChild(tick);
+  }
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function send() {
+  const input = document.getElementById("msg");
+  if (!input.value) return;
+
+  const msgObj = {
+    id: uuid(),
+    text: input.value
+  };
+
+  createBubble(msgObj, "me");
+  socket.emit("chat message", msgObj);
+
+  input.value = "";
+}
+
+socket.on("chat message", (msg) => {
+  createBubble(msg, "other");
+
+  // send seen event
+  socket.emit("seen", msg.id);
+});
+
+socket.on("delivered", (id) => {
+  const msg = document.getElementById(id);
+  if (msg) {
+    msg.querySelector(".tick").innerHTML = "✔✔";
+  }
+});
+
+socket.on("seen", (id) => {
+  const msg = document.getElementById(id);
+  if (msg) {
+    const tick = msg.querySelector(".tick");
+    tick.innerHTML = "✔✔";
+    tick.classList.add("blue");
+  }
+});
+
+/* typing */
+document.getElementById("msg").addEventListener("input", () => {
+  socket.emit("typing");
+});
+
+socket.on("typing", () => {
+  typingDiv.innerHTML = `
+    <div class="typing-bubble">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+  `;
+
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    typingDiv.innerHTML = "";
+  }, 1500);
+});
+</script>
+</body>
+</html>
